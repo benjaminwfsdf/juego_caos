@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAOS Retro</title>
+  <style>
+    body {
+      margin: 0;
+      background: #fff8dc;
+      font-family: 'Comic Sans MS', cursive;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    canvas {
+      display: block;
+      margin: 0 auto;
+      border-top: 4px dashed #d00;
+      background-color: #fffde6;
+      width: 100%;
+      max-width: 1200px;
+      height: 400px;
+    }
+
+    #mensaje {
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+      color: #222;
+      margin: 10px;
+    }
+
+    .controles {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-bottom: 10px;
+    }
+
+    .boton {
+      background-color: #d00;
+      color: white;
+      border: none;
+      padding: 15px 25px;
+      font-size: 20px;
+      border-radius: 12px;
+      box-shadow: 3px 3px 0 black;
+      font-family: 'Comic Sans MS', cursive;
+    }
+
+    footer {
+      background-color: #222;
+      color: white;
+      text-align: center;
+      padding: 10px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="juego" width="1200" height="400"></canvas>
+  <div id="mensaje"></div>
+  <div class="controles">
+    <button class="boton" onclick="saltar()">Saltar ⬆️</button>
+    <button class="boton" onmousedown="agachar()" onmouseup="levantar()">Agacharse ⬇️</button>
+  </div>
+  <footer>© 2025 CAOS - Sitio desarrollado por Benjamín González. Todos los derechos reservados.</footer>
+
+  <script>
+    const canvas = document.getElementById("juego");
+    const ctx = canvas.getContext("2d");
+
+    const imgFondo = new Image();
+    imgFondo.src = "imagen_fondo.png";
+
+    const imgCorriendo = new Image();
+    imgCorriendo.src = "personaje_caos.png";
+
+    const imgSaltando = new Image();
+    imgSaltando.src = "personaje_salto.png";
+
+    const imgAgachado = new Image();
+    imgAgachado.src = "personaje_agachado.png";
+
+    const imgProfe = new Image();
+    imgProfe.src = "profesor.png";
+
+    const imgNota = new Image();
+    imgNota.src = "nota.png";
+
+    const pisoY = 300;
+    const jugadorOriginalAltura = 100;
+    const jugadorOriginalY = pisoY;
+    const jugadorAncho = 100;
+
+    let jugador = {
+      x: 50,
+      y: jugadorOriginalY,
+      width: jugadorAncho,
+      height: jugadorOriginalAltura,
+      vy: 0,
+      salto: false,
+      agachado: false
+    };
+
+    let obstaculos = [];
+    let notas = [];
+    let gravedad = 0.6;
+    let puntuacion = 0;
+    let velocidadJuego = 6;
+    let intervalo = 1300;
+    let juegoTerminado = false;
+
+    function dibujarFondo() {
+      ctx.drawImage(imgFondo, 0, 0, canvas.width, canvas.height);
+    }
+
+    function dibujarJugador() {
+      let sprite;
+      if (jugador.salto) {
+        sprite = imgSaltando;
+      } else if (jugador.agachado) {
+        sprite = imgAgachado;
+      } else {
+        sprite = imgCorriendo;
+      }
+      ctx.drawImage(sprite, jugador.x, jugador.y, jugador.width, jugador.height);
+    }
+
+    function dibujarObstaculos() {
+      obstaculos.forEach(ob => {
+        ctx.drawImage(imgProfe, ob.x, ob.y, ob.width, ob.height);
+      });
+    }
+
+    function dibujarNotas() {
+      notas.forEach(n => {
+        ctx.drawImage(imgNota, n.x, n.y, n.width, n.height);
+      });
+    }
+
+    function actualizarJugador() {
+      if (jugador.salto) {
+        jugador.vy -= gravedad;
+        jugador.y -= jugador.vy;
+        if (jugador.y >= pisoY) {
+          jugador.y = pisoY;
+          jugador.vy = 0;
+          jugador.salto = false;
+        }
+      }
+    }
+
+    function crearObstaculoONota() {
+      const tipo = Math.random() < 0.5 ? "profe" : "nota";
+      if (tipo === "profe") {
+        obstaculos.push({ x: canvas.width, y: pisoY + 5, width: 80, height: 100 });
+      } else {
+        notas.push({ x: canvas.width, y: pisoY - 30, width: 65, height: 65 });
+      }
+    }
+
+    function actualizarObstaculos() {
+      obstaculos.forEach((ob, i) => {
+        ob.x -= velocidadJuego;
+        if (ob.x + ob.width < 0) {
+          obstaculos.splice(i, 1);
+          puntuacion++;
+        }
+
+        if (
+          jugador.x < ob.x + ob.width &&
+          jugador.x + jugador.width > ob.x &&
+          jugador.y < ob.y + ob.height &&
+          jugador.y + jugador.height > ob.y
+        ) {
+          juegoTerminado = true;
+        }
+      });
+    }
+
+    function actualizarNotas() {
+      notas.forEach((n, i) => {
+        n.x -= velocidadJuego + 2;
+        if (n.x + n.width < 0) {
+          notas.splice(i, 1);
+          puntuacion++;
+        }
+
+        if (
+          jugador.x < n.x + n.width &&
+          jugador.x + jugador.width > n.x &&
+          jugador.y < n.y + n.height &&
+          jugador.y + jugador.height > n.y
+        ) {
+          juegoTerminado = true;
+        }
+      });
+    }
+
+    function loop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      dibujarFondo();
+
+      if (!juegoTerminado) {
+        dibujarJugador();
+        dibujarObstaculos();
+        dibujarNotas();
+        actualizarJugador();
+        actualizarObstaculos();
+        actualizarNotas();
+
+        ctx.fillStyle = "#000";
+        ctx.font = "22px Comic Sans MS";
+        ctx.fillText("Puntaje: " + puntuacion, 10, 30);
+
+        requestAnimationFrame(loop);
+      } else {
+        let mensaje = "¡Perdiste! Puntaje final: " + puntuacion;
+       
+        }
+        document.getElementById("mensaje").innerText = mensaje;
+      }
+    
+
+    function saltar() {
+      if (jugador.y === pisoY) {
+        jugador.vy = 16;
+        jugador.salto = true;
+      }
+    }
+
+    function agachar() {
+      if (!jugador.salto && !jugador.agachado) {
+        jugador.agachado = true;
+        jugador.height = jugadorOriginalAltura / 2;
+        jugador.y += jugadorOriginalAltura / 2;
+      }
+    }
+
+    function levantar() {
+      if (jugador.agachado) {
+        jugador.agachado = false;
+        jugador.y -= jugadorOriginalAltura / 2;
+        jugador.height = jugadorOriginalAltura;
+      }
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if ((e.code === "Space" || e.code === "ArrowUp")) saltar();
+      if (e.code === "ArrowDown") agachar();
+    });
+
+    document.addEventListener("keyup", (e) => {
+      if (e.code === "ArrowDown") levantar();
+    });
+
+    setInterval(() => {
+      if (!juegoTerminado) crearObstaculoONota();
+    }, intervalo);
+
+    setInterval(() => {
+      if (!juegoTerminado) velocidadJuego *= 1.10;
+    }, 1500);
+
+    loop();
+  </script>
+</body>
+</html>
